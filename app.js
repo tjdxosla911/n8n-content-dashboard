@@ -201,6 +201,51 @@ app.post('/contents/bulk-delete', (req, res) => {
   res.redirect('/?status=' + status);
 });
 
+
+// POST /contents/create - 대시보드에서 직접 글 작성
+app.post('/contents/create', upload.array('images', 10), (req, res) => {
+  const { title, body, hashtags, product, requester, platform } = req.body;
+  if (!title || !title.trim()) return res.redirect('/?error=title');
+
+  const baseUrl = process.env.DASHBOARD_URL || 'https://dash.bestrealinfo.com';
+  const imageUrls = req.files && req.files.length
+    ? req.files.map(f => baseUrl + '/uploads/' + f.filename).join(', ')
+    : null;
+
+  const result = db.prepare(`
+    INSERT INTO contents (title, body, hashtags, product, requester, platform, image_url)
+    VALUES (?, ?, ?, ?, ?, ?, ?)
+  `).run(
+    title.trim(),
+    body || '',
+    hashtags || '',
+    product || '',
+    requester || '',
+    platform || '인스타그램',
+    imageUrls
+  );
+  console.log('[create] manual content id=' + result.lastInsertRowid + ' images=' + (req.files ? req.files.length : 0));
+  res.redirect('/contents/' + result.lastInsertRowid);
+});
+
+// POST /contents/:id/image - 이미지 수동 업로드 및 등록
+app.post('/contents/:id/image', upload.array('images', 10), (req, res) => {
+  const content = db.prepare('SELECT * FROM contents WHERE id = ?').get(req.params.id);
+  if (!content) return res.status(404).send('Not found');
+
+  const baseUrl = process.env.DASHBOARD_URL || 'https://dash.bestrealinfo.com';
+  const newUrls = req.files.map(f => baseUrl + '/uploads/' + f.filename);
+
+  const existing = content.image_url ? content.image_url.split(',').map(u => u.trim()).filter(Boolean) : [];
+  const merged = [...existing, ...newUrls].join(', ');
+
+  db.prepare('UPDATE contents SET image_url = ?, updated_at = CURRENT_TIMESTAMP WHERE id = ?')
+    .run(merged, req.params.id);
+
+  console.log('[image] id=' + req.params.id + ' added ' + newUrls.length + ' images');
+  res.redirect('/contents/' + req.params.id);
+});
+
 // ── API 라우트 ────────────────────────────────────────────────────
 
 // POST /api/upload - 이미지 업로드
