@@ -248,6 +248,40 @@ app.post('/contents/:id/image', upload.array('images', 10), (req, res) => {
 
 // ── API 라우트 ────────────────────────────────────────────────────
 
+
+// POST /contents/:id/image/delete - 이미지 개별 삭제 (DB + 실제 파일)
+app.post('/contents/:id/image/delete', (req, res) => {
+  const content = db.prepare('SELECT * FROM contents WHERE id = ?').get(req.params.id);
+  if (!content) return res.status(404).send('Not found');
+
+  const targetUrl = req.body.url;
+
+  // 실제 파일 삭제
+  try {
+    const filename = targetUrl.split('/uploads/')[1];
+    if (filename) {
+      const filePath = path.join(__dirname, 'public', 'uploads', filename);
+      if (fs.existsSync(filePath)) {
+        fs.unlinkSync(filePath);
+        console.log('[image-delete] file removed: ' + filePath);
+      }
+    }
+  } catch (err) {
+    console.error('[image-delete] file delete error:', err.message);
+  }
+
+  // DB 업데이트
+  const remaining = content.image_url
+    ? content.image_url.split(',').map(u => u.trim()).filter(u => u && u !== targetUrl)
+    : [];
+
+  db.prepare('UPDATE contents SET image_url = ?, updated_at = CURRENT_TIMESTAMP WHERE id = ?')
+    .run(remaining.length ? remaining.join(', ') : null, req.params.id);
+
+  console.log('[image-delete] id=' + req.params.id + ' removed: ' + targetUrl);
+  res.redirect('/contents/' + req.params.id);
+});
+
 // POST /api/upload - 이미지 업로드
 app.post('/api/upload', upload.single('image'), (req, res) => {
   if (!req.file) return res.status(400).json({ error: '이미지 파일 필요' });

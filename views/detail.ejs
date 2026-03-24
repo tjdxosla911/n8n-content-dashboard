@@ -33,8 +33,20 @@
         <label class="block text-sm font-medium text-gray-700 mb-2">첨부 이미지 (<%= content.image_url.split(",").filter(u => u.trim()).length %>개)</label>
         <div class="flex flex-wrap gap-3 justify-center">
           <% content.image_url.split(",").filter(u => u.trim()).forEach(function(url, i) { %>
-            <img src="<%= url.trim() %>" alt="첨부 이미지 <%= i+1 %>"
-                 class="max-h-64 rounded-lg border border-gray-200 object-cover">
+            <div class="relative group">
+              <img src="<%= url.trim() %>" alt="첨부 이미지 <%= i+1 %>"
+                   class="max-h-64 rounded-lg border border-gray-200 object-cover">
+              <form action="/contents/<%= content.id %>/image/delete" method="POST"
+                    onsubmit="return confirm('이 이미지를 삭제하시겠습니까?')"
+                    class="absolute top-1 right-1">
+                <input type="hidden" name="url" value="<%= url.trim() %>">
+                <button type="submit"
+                        class="w-6 h-6 bg-red-500 hover:bg-red-600 text-white rounded-full text-xs font-bold
+                               opacity-0 group-hover:opacity-100 transition flex items-center justify-center">
+                  &times;
+                </button>
+              </form>
+            </div>
           <% }); %>
         </div>
       </div>
