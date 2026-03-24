@@ -1,0 +1,174 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>콘텐츠 승인 대시보드</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+</head>
+<body class="min-h-screen bg-gray-50">
+  <header class="bg-white border-b border-gray-200 px-6 py-4 shadow-sm">
+    <div class="max-w-5xl mx-auto flex items-center justify-between">
+      <a href="/" class="text-xl font-bold text-indigo-600">콘텐츠 승인 대시보드</a>
+      <span class="text-sm text-gray-400">bestrealinfo.com</span>
+    </div>
+  </header>
+
+  <main class="max-w-5xl mx-auto px-4 py-8">
+    <!-- 탭 -->
+    <div class="flex gap-2 mb-6 flex-wrap">
+      <a href="/?status=pending"
+         class="px-5 py-2 rounded-full text-sm font-medium transition
+                <%- status === 'pending' ? 'bg-indigo-600 text-white shadow' : 'bg-white text-gray-600 border hover:bg-gray-50' %>">
+        승인대기 <span class="ml-1 font-bold"><%= counts.pending %></span>
+      </a>
+      <a href="/?status=approved"
+         class="px-5 py-2 rounded-full text-sm font-medium transition
+                <%- status === 'approved' ? 'bg-green-600 text-white shadow' : 'bg-white text-gray-600 border hover:bg-gray-50' %>">
+        승인완료 <span class="ml-1 font-bold"><%= counts.approved %></span>
+      </a>
+      <a href="/?status=published"
+         class="px-5 py-2 rounded-full text-sm font-medium transition
+                <%- status === 'published' ? 'bg-blue-600 text-white shadow' : 'bg-white text-gray-600 border hover:bg-gray-50' %>">
+        발행완료 <span class="ml-1 font-bold"><%= counts.published %></span>
+      </a>
+      <a href="/?status=publish_failed"
+         class="px-5 py-2 rounded-full text-sm font-medium transition
+                <%- status === 'publish_failed' ? 'bg-orange-500 text-white shadow' : 'bg-white text-gray-600 border hover:bg-gray-50' %>">
+        발행실패 <span class="ml-1 font-bold"><%= counts.publish_failed %></span>
+      </a>
+      <a href="/?status=rejected"
+         class="px-5 py-2 rounded-full text-sm font-medium transition
+                <%- status === 'rejected' ? 'bg-red-500 text-white shadow' : 'bg-white text-gray-600 border hover:bg-gray-50' %>">
+        거절 <span class="ml-1 font-bold"><%= counts.rejected %></span>
+      </a>
+    </div>
+
+    <!-- 목록 -->
+    <% if (contents.length === 0) { %>
+      <div class="bg-white rounded-xl border border-gray-200 p-12 text-center text-gray-400">
+        <p class="text-lg">
+          <% if (status === 'pending') { %>승인 대기 중인 콘텐츠가 없습니다.
+          <% } else if (status === 'approved') { %>승인된 콘텐츠가 없습니다.
+          <% } else if (status === 'published') { %>발행된 콘텐츠가 없습니다.
+          <% } else if (status === 'publish_failed') { %>발행 실패 콘텐츠가 없습니다.
+          <% } else { %>거절된 콘텐츠가 없습니다.<% } %>
+        </p>
+      </div>
+    <% } else { %>
+      <!-- 선택 삭제 바 -->
+      <form id="bulk-form" action="/contents/bulk-delete" method="POST">
+        <input type="hidden" name="status" value="<%= status %>">
+        <div id="bulk-bar" class="hidden mb-4 flex items-center gap-3 bg-red-50 border border-red-200 rounded-xl px-5 py-3">
+          <span id="bulk-count" class="text-sm font-medium text-red-700">0개 선택</span>
+          <button type="submit" onclick="return confirm('선택한 콘텐츠를 삭제하시겠습니까?')"
+                  class="ml-auto px-4 py-1.5 bg-red-500 hover:bg-red-600 text-white text-sm font-medium rounded-lg transition">
+            선택 삭제
+          </button>
+          <button type="button" onclick="clearSelection()"
+                  class="px-4 py-1.5 bg-white hover:bg-gray-50 text-gray-600 text-sm font-medium rounded-lg border transition">
+            취소
+          </button>
+        </div>
+
+        <div class="space-y-3">
+          <% contents.forEach(function(c) { %>
+            <div class="flex items-center gap-3 bg-white rounded-xl border border-gray-200 px-5 py-4 hover:border-indigo-300 hover:shadow-sm transition group">
+              <input type="checkbox" name="ids" value="<%= c.id %>" onchange="updateBulkBar()"
+                     class="w-4 h-4 text-red-500 border-gray-300 rounded shrink-0 cursor-pointer">
+              <a href="/contents/<%= c.id %>" class="flex-1 min-w-0 flex items-start gap-4">
+                <% if (c.image_url) { %>
+                  <img src="<%= c.image_url.split(",")[0].trim() %>" alt="" class="w-16 h-16 rounded-lg object-cover shrink-0 border border-gray-200">
+                <% } %>
+                <div class="flex-1 min-w-0">
+                  <div class="font-semibold text-gray-800 truncate group-hover:text-indigo-600">
+                    <%= c.title %>
+                  </div>
+                  <div class="text-sm text-gray-500 mt-1 line-clamp-1">
+                    <%- c.body ? c.body.substring(0, 80) + '...' : '' %>
+                  </div>
+                  <div class="flex gap-4 mt-2 text-xs text-gray-400">
+                    <span><%= c.requester || '-' %></span>
+                    <span><%= c.product || '-' %></span>
+                    <span><%= c.platform %></span>
+                    <span><%= formatDt(c.created_at) %></span>
+                    <% if (c.image_url) { %><span class="text-indigo-500 font-medium">IMG</span><% } %>
+                    <% if (c.thread_id) { %><span class="text-blue-500 font-medium">Threads</span><% } %>
+                  </div>
+                </div>
+                <div class="shrink-0">
+                  <% if (c.status === 'pending') { %>
+                    <span class="inline-flex items-center px-3 py-1 rounded-full text-xs font-medium bg-yellow-100 text-yellow-700">대기</span>
+                  <% } else if (c.status === 'approved') { %>
+                    <span class="inline-flex items-center px-3 py-1 rounded-full text-xs font-medium bg-green-100 text-green-700">승인</span>
+                  <% } else if (c.status === 'published') { %>
+                    <span class="inline-flex items-center px-3 py-1 rounded-full text-xs font-medium bg-blue-100 text-blue-700">발행됨</span>
+                  <% } else if (c.status === 'publish_failed') { %>
+                    <span class="inline-flex items-center px-3 py-1 rounded-full text-xs font-medium bg-orange-100 text-orange-700">발행실패</span>
+                  <% } else { %>
+                    <span class="inline-flex items-center px-3 py-1 rounded-full text-xs font-medium bg-red-100 text-red-600">거절</span>
+                  <% } %>
+                </div>
+              </a>
+            </div>
+          <% }); %>
+        </div>
+      </form>
+
+      <!-- 페이지네이션 -->
+      <div class="mt-6 flex items-center justify-between">
+        <div class="flex items-center gap-2 text-sm text-gray-500">
+          <span>페이지당</span>
+          <select onchange="location.href='/?status=<%= status %>&per=' + this.value"
+                  class="border border-gray-300 rounded-lg px-2 py-1 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-300">
+            <% [10, 20, 30, 40, 50, 100].forEach(function(n) { %>
+              <option value="<%= n %>" <%- n === perPage ? 'selected' : '' %>><%= n %>개</option>
+            <% }); %>
+          </select>
+          <span class="ml-2 text-gray-400">총 <%= total %>건</span>
+        </div>
+
+        <div class="flex items-center gap-1">
+          <% if (page > 1) { %>
+            <a href="/?status=<%= status %>&per=<%= perPage %>&page=<%= page - 1 %>"
+               class="px-3 py-1.5 text-sm border border-gray-300 rounded-lg hover:bg-gray-50 transition">&laquo; 이전</a>
+          <% } %>
+
+          <% var startPage = Math.max(1, page - 2); var endPage = Math.min(totalPages, page + 2); %>
+          <% for (var p = startPage; p <= endPage; p++) { %>
+            <a href="/?status=<%= status %>&per=<%= perPage %>&page=<%= p %>"
+               class="px-3 py-1.5 text-sm rounded-lg transition
+                      <%- p === page ? 'bg-indigo-600 text-white' : 'border border-gray-300 hover:bg-gray-50' %>"><%= p %></a>
+          <% } %>
+
+          <% if (page < totalPages) { %>
+            <a href="/?status=<%= status %>&per=<%= perPage %>&page=<%= page + 1 %>"
+               class="px-3 py-1.5 text-sm border border-gray-300 rounded-lg hover:bg-gray-50 transition">다음 &raquo;</a>
+          <% } %>
+        </div>
+      </div>
+    <% } %>
+  </main>
+
+  <script>
+    function updateBulkBar() {
+      var checked = document.querySelectorAll('input[name="ids"]:checked');
+      var bar = document.getElementById('bulk-bar');
+      var count = document.getElementById('bulk-count');
+      if (checked.length > 0) {
+        bar.classList.remove('hidden');
+        count.textContent = checked.length + '개 선택';
+      } else {
+        bar.classList.add('hidden');
+      }
+    }
+
+    function clearSelection() {
+      document.querySelectorAll('input[name="ids"]:checked').forEach(function(cb) {
+        cb.checked = false;
+      });
+      updateBulkBar();
+    }
+  </script>
+</body>
+</html>

@@ -1,0 +1,194 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title><%= content.title %> - 콘텐츠 승인</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+</head>
+<body class="min-h-screen bg-gray-50">
+  <header class="bg-white border-b border-gray-200 px-6 py-4 shadow-sm">
+    <div class="max-w-3xl mx-auto flex items-center justify-between">
+      <a href="/" class="text-xl font-bold text-indigo-600">콘텐츠 승인 대시보드</a>
+      <div class="flex gap-2 text-sm">
+        <a href="/?status=pending"   class="text-gray-500 hover:text-indigo-600">대기 <%= counts.pending %></a>
+        <span class="text-gray-300">|</span>
+        <a href="/?status=approved"  class="text-gray-500 hover:text-green-600">승인 <%= counts.approved %></a>
+        <span class="text-gray-300">|</span>
+        <a href="/?status=published" class="text-gray-500 hover:text-blue-600">발행 <%= counts.published %></a>
+        <span class="text-gray-300">|</span>
+        <a href="/?status=rejected"  class="text-gray-500 hover:text-red-500">거절 <%= counts.rejected %></a>
+      </div>
+    </div>
+  </header>
+
+  <main class="max-w-3xl mx-auto px-4 py-8">
+    <a href="/?status=<%= content.status %>" class="inline-flex items-center gap-1 text-sm text-gray-500 hover:text-indigo-600 mb-6">
+      &larr; 목록으로
+    </a>
+
+    <!-- 이미지 미리보기 -->
+    <% if (content.image_url) { %>
+      <div class="bg-white rounded-xl border border-gray-200 p-4 mb-5 shadow-sm">
+        <label class="block text-sm font-medium text-gray-700 mb-2">첨부 이미지 (<%= content.image_url.split(",").filter(u => u.trim()).length %>개)</label>
+        <div class="flex flex-wrap gap-3 justify-center">
+          <% content.image_url.split(",").filter(u => u.trim()).forEach(function(url, i) { %>
+            <img src="<%= url.trim() %>" alt="첨부 이미지 <%= i+1 %>"
+                 class="max-h-64 rounded-lg border border-gray-200 object-cover">
+          <% }); %>
+        </div>
+      </div>
+    <% } %>
+
+    <!-- 메타 정보 -->
+    <div class="bg-white rounded-xl border border-gray-200 p-6 mb-5 shadow-sm">
+      <div class="flex items-center justify-between mb-4">
+        <h1 class="text-lg font-bold text-gray-800">콘텐츠 상세</h1>
+        <% if (content.status === 'pending') { %>
+          <span class="px-3 py-1 rounded-full text-xs font-medium bg-yellow-100 text-yellow-700">승인대기</span>
+        <% } else if (content.status === 'approved') { %>
+          <span class="px-3 py-1 rounded-full text-xs font-medium bg-green-100 text-green-700">승인완료</span>
+        <% } else if (content.status === 'published') { %>
+          <span class="px-3 py-1 rounded-full text-xs font-medium bg-blue-100 text-blue-700">발행완료</span>
+        <% } else if (content.status === 'publish_failed') { %>
+          <span class="px-3 py-1 rounded-full text-xs font-medium bg-orange-100 text-orange-700">발행실패</span>
+        <% } else { %>
+          <span class="px-3 py-1 rounded-full text-xs font-medium bg-red-100 text-red-600">거절</span>
+        <% } %>
+      </div>
+      <dl class="grid grid-cols-2 gap-3 text-sm">
+        <div>
+          <dt class="text-gray-400 text-xs mb-0.5">요청자</dt>
+          <dd class="font-medium text-gray-700"><%= content.requester || '-' %></dd>
+        </div>
+        <div>
+          <dt class="text-gray-400 text-xs mb-0.5">상품명</dt>
+          <dd class="font-medium text-gray-700"><%= content.product || '-' %></dd>
+        </div>
+        <div>
+          <dt class="text-gray-400 text-xs mb-0.5">플랫폼</dt>
+          <dd class="font-medium text-gray-700"><%= content.platform %></dd>
+        </div>
+        <div>
+          <dt class="text-gray-400 text-xs mb-0.5">생성일시</dt>
+          <dd class="font-medium text-gray-700"><%= formatDt(content.created_at) %></dd>
+        </div>
+      </dl>
+      <% if (content.thread_id) { %>
+        <div class="mt-4 p-3 bg-blue-50 border border-blue-200 rounded-lg text-sm">
+          <span class="text-blue-700 font-medium">Threads 발행 ID:</span>
+          <span class="text-blue-600 ml-1"><%= content.thread_id %></span>
+        </div>
+      <% } %>
+      <% if (content.publish_message) { %>
+        <div class="mt-2 p-3 bg-gray-50 border border-gray-200 rounded-lg text-sm text-gray-600">
+          <%= content.publish_message %>
+        </div>
+      <% } %>
+    </div>
+
+    <!-- 편집 폼 -->
+    <form action="/contents/<%= content.id %>/save" method="POST" class="bg-white rounded-xl border border-gray-200 p-6 shadow-sm space-y-4">
+      <div>
+        <label class="block text-sm font-medium text-gray-700 mb-1">제목 (메인 카피)</label>
+        <input type="text" name="title" value="<%= content.title %>"
+               class="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-300">
+      </div>
+      <div>
+        <label class="block text-sm font-medium text-gray-700 mb-1">본문</label>
+        <textarea name="body" rows="8"
+                  class="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-300 resize-y"><%= content.body %></textarea>
+      </div>
+      <div>
+        <label class="block text-sm font-medium text-gray-700 mb-1">해시태그</label>
+        <input type="text" name="hashtags" value="<%= content.hashtags %>"
+               class="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-300"
+               placeholder="#태그1 #태그2 ...">
+      </div>
+      <div class="flex justify-end">
+        <button type="submit"
+                class="px-5 py-2 bg-gray-700 hover:bg-gray-800 text-white text-sm font-medium rounded-lg transition">
+          저장
+        </button>
+      </div>
+    </form>
+
+    <!-- 승인 / 거절 버튼 -->
+    <% if (content.status === 'pending') { %>
+      <div class="flex gap-3 mt-5">
+        <form action="/contents/<%= content.id %>/approve" method="POST" class="flex-1" onsubmit="return handleSubmit(this, 'approve')">
+          <button type="submit"
+                  class="w-full py-3 bg-indigo-600 hover:bg-indigo-700 text-white font-semibold rounded-xl transition shadow">
+            승인 → Threads 발행<%= content.image_url ? ' (이미지+텍스트)' : '' %>
+          </button>
+        </form>
+        <form action="/contents/<%= content.id %>/reject" method="POST" class="flex-1" onsubmit="return handleSubmit(this, 'reject')">
+          <button type="submit"
+                  class="w-full py-3 bg-red-50 hover:bg-red-100 text-red-600 font-semibold rounded-xl border border-red-200 transition">
+            거절
+          </button>
+        </form>
+      </div>
+    <% } else if (content.status === 'publish_failed' || content.status === 'approved') { %>
+      <div class="flex gap-3 mt-5">
+        <form action="/contents/<%= content.id %>/republish" method="POST" class="flex-1" onsubmit="return handleSubmit(this, 'approve')">
+          <button type="submit"
+                  class="w-full py-3 bg-indigo-600 hover:bg-indigo-700 text-white font-semibold rounded-xl transition shadow">
+            재발행 → Threads<%= content.image_url ? ' (이미지+텍스트)' : '' %>
+          </button>
+        </form>
+      </div>
+      <% if (content.publish_message) { %>
+        <div class="mt-3 p-3 bg-orange-50 border border-orange-200 rounded-lg text-sm text-orange-700">
+          이전 발행 실패: <%= content.publish_message %>
+        </div>
+      <% } %>
+    <% } else { %>
+      <div class="mt-5 p-4 bg-gray-50 border border-gray-200 rounded-xl text-center text-sm text-gray-500">
+        이미 처리된 콘텐츠입니다.
+        <a href="/?status=pending" class="ml-2 text-indigo-600 hover:underline">대기 목록 보기</a>
+      </div>
+    <% } %>
+
+    <!-- 삭제 버튼 -->
+    <div class="mt-3 flex justify-end">
+      <form action="/contents/<%= content.id %>/delete" method="POST"
+            onsubmit="return confirm('이 콘텐츠를 삭제하시겠습니까? 복구할 수 없습니다.')">
+        <button type="submit"
+                class="px-4 py-2 text-sm text-gray-400 hover:text-red-500 hover:bg-red-50 rounded-lg transition">
+          삭제
+        </button>
+      </form>
+    </div>
+  </main>
+
+  <!-- 전체 화면 딤 + 스피너 오버레이 -->
+  <div id="loading-overlay" class="hidden fixed inset-0 z-50 flex flex-col items-center justify-center" style="background:rgba(0,0,0,0.5)">
+    <svg class="animate-spin h-12 w-12 text-white mb-4" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+      <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
+      <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z"></path>
+    </svg>
+    <p id="loading-text" class="text-white text-lg font-medium"></p>
+  </div>
+
+  <script>
+    if (location.search.includes('saved=1')) {
+      history.replaceState(null, '', location.pathname);
+    }
+
+    function handleSubmit(form, action) {
+      var msg = action === 'approve'
+        ? '승인하시겠습니까? Threads에 자동 발행됩니다.'
+        : '거절하시겠습니까?';
+      if (!confirm(msg)) return false;
+
+      var overlay = document.getElementById('loading-overlay');
+      var text = document.getElementById('loading-text');
+      text.textContent = action === 'approve' ? 'Threads 발행 중...' : '처리 중...';
+      overlay.classList.remove('hidden');
+
+      return true;
+    }
+  </script>
+</body>
+</html>
