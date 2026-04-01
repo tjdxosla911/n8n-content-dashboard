@@ -221,7 +221,9 @@ app.post('/contents/:id/delete', (req, res) => {
 
 // POST /contents/bulk-delete - 일괄 삭제
 app.post('/contents/bulk-delete', (req, res) => {
-  const ids = req.body.ids;
+  let ids = req.body.ids;
+  if (!ids) ids = [];
+  if (!Array.isArray(ids)) ids = [ids];
   const status = req.body.status || 'pending';
   if (!ids || !ids.length) return res.redirect('/?status=' + status);
   const placeholders = ids.map(() => '?').join(',');
