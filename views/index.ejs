@@ -154,28 +154,59 @@
   </main>
 
   <script>
+    var accumulatedFiles = [];
+
     function previewModalImages(input) {
+      Array.from(input.files).forEach(function(file) {
+        accumulatedFiles.push(file);
+      });
+      input.value = '';
+      renderPreview();
+    }
+
+    function removeModalImage(index) {
+      accumulatedFiles.splice(index, 1);
+      renderPreview();
+    }
+
+    function renderPreview() {
       var preview = document.getElementById('modal-image-preview');
       preview.innerHTML = '';
-      var files = Array.from(input.files);
-      files.forEach(function(file) {
+      accumulatedFiles.forEach(function(file, i) {
         var reader = new FileReader();
         reader.onload = function(e) {
           var wrapper = document.createElement('div');
-          wrapper.className = 'relative';
+          wrapper.className = 'relative group';
           var img = document.createElement('img');
           img.src = e.target.result;
           img.className = 'w-16 h-16 object-cover rounded-lg border border-gray-200';
           wrapper.appendChild(img);
+          var btn = document.createElement('button');
+          btn.type = 'button';
+          btn.className = 'absolute -top-1 -right-1 w-5 h-5 bg-red-500 hover:bg-red-600 text-white rounded-full text-xs font-bold flex items-center justify-center opacity-0 group-hover:opacity-100 transition';
+          btn.innerHTML = '&times;';
+          btn.onclick = function() { removeModalImage(i); };
+          wrapper.appendChild(btn);
           preview.appendChild(wrapper);
         };
         reader.readAsDataURL(file);
       });
-      var count = document.createElement('p');
-      count.className = 'w-full text-xs text-gray-400 mt-1';
-      count.textContent = files.length + '개 파일 선택됨';
-      preview.appendChild(count);
+      if (accumulatedFiles.length > 0) {
+        var count = document.createElement('p');
+        count.className = 'w-full text-xs text-gray-400 mt-1';
+        count.textContent = accumulatedFiles.length + '개 파일 선택됨';
+        preview.appendChild(count);
+      }
     }
+
+    // 폼 제출 시 누적된 파일을 FormData에 주입
+    document.querySelector('#new-modal form').addEventListener('submit', function(e) {
+      if (accumulatedFiles.length > 0) {
+        var dt = new DataTransfer();
+        accumulatedFiles.forEach(function(f) { dt.items.add(f); });
+        document.getElementById('modal-image-input').files = dt.files;
+      }
+    });
   </script>
   <script>
     function updateBulkBar() {
@@ -203,7 +234,7 @@
   <div class="bg-white rounded-xl shadow-xl w-full max-w-lg mx-4 p-6">
     <div class="flex items-center justify-between mb-5">
       <h2 class="text-lg font-bold text-gray-800">새 글 작성</h2>
-      <button onclick="document.getElementById('new-modal').classList.add('hidden'); document.getElementById('modal-image-preview').innerHTML=''; document.getElementById('modal-image-input').value='';"
+      <button onclick="document.getElementById('new-modal').classList.add('hidden'); document.getElementById('modal-image-preview').innerHTML=''; document.getElementById('modal-image-input').value=''; accumulatedFiles=[];"
               class="text-gray-400 hover:text-gray-600 text-xl">&times;</button>
     </div>
     <form action="/contents/create" method="POST" enctype="multipart/form-data" class="space-y-4">

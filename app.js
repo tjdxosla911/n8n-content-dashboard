@@ -3,6 +3,7 @@ const Database = require('better-sqlite3');
 const multer = require('multer');
 const path = require('path');
 const fs = require('fs');
+const sharp = require('sharp');
 
 const app = express();
 app.set('view engine', 'ejs');
@@ -22,7 +23,35 @@ const storage = multer.diskStorage({
     cb(null, Date.now() + '-' + Math.random().toString(36).slice(2, 8) + ext);
   },
 });
-const upload = multer({ storage, limits: { fileSize: 10 * 1024 * 1024 } });
+const upload = multer({ storage, limits: { fileSize: 50 * 1024 * 1024 } });
+
+// 업로드된 이미지 자동 압축 미들웨어
+async function compressImages(req, res, next) {
+  if (!req.files || req.files.length === 0) {
+    if (req.file) req.files = [req.file];
+    else return next();
+  }
+  for (const file of req.files) {
+    try {
+      const ext = path.extname(file.filename).toLowerCase();
+      if (!['.jpg', '.jpeg', '.png', '.webp'].includes(ext)) continue;
+      const inputPath = file.path;
+      const outputName = path.basename(file.filename, ext) + '.jpg';
+      const outputPath = path.join(uploadDir, outputName);
+      await sharp(inputPath)
+        .resize(1920, 1920, { fit: 'inside', withoutEnlargement: true })
+        .jpeg({ quality: 80 })
+        .toFile(outputPath);
+      // 원본 삭제 (압축본과 다른 경우)
+      if (inputPath !== outputPath) fs.unlinkSync(inputPath);
+      file.filename = outputName;
+      file.path = outputPath;
+    } catch (err) {
+      console.error('[compress] error:', file.filename, err.message);
+    }
+  }
+  next();
+}
 
 // DB 초기화
 const dataDir = path.join(__dirname, 'data');
@@ -94,12 +123,12 @@ app.get('/contents/:id', (req, res) => {
 
 // POST /contents/:id/save - 본문 수정
 app.post('/contents/:id/save', (req, res) => {
-  const { title, body, hashtags } = req.body;
+  const { title, body, hashtags, platform } = req.body;
   db.prepare(`
     UPDATE contents
-    SET title = ?, body = ?, hashtags = ?, updated_at = CURRENT_TIMESTAMP
+    SET title = ?, body = ?, hashtags = ?, platform = ?, updated_at = CURRENT_TIMESTAMP
     WHERE id = ?
-  `).run(title, body, hashtags, req.params.id);
+  `).run(title, body, hashtags, platform || '인스타그램', req.params.id);
   res.redirect('/contents/' + req.params.id + '?saved=1');
 });
 
@@ -203,7 +232,7 @@ app.post('/contents/bulk-delete', (req, res) => {
 
 
 // POST /contents/create - 대시보드에서 직접 글 작성
-app.post('/contents/create', upload.array('images', 10), (req, res) => {
+app.post('/contents/create', upload.array('images', 10), compressImages, (req, res) => {
   const { title, body, hashtags, product, requester, platform } = req.body;
   if (!title || !title.trim()) return res.redirect('/?error=title');
 
@@ -229,7 +258,7 @@ app.post('/contents/create', upload.array('images', 10), (req, res) => {
 });
 
 // POST /contents/:id/image - 이미지 수동 업로드 및 등록
-app.post('/contents/:id/image', upload.array('images', 10), (req, res) => {
+app.post('/contents/:id/image', upload.array('images', 10), compressImages, (req, res) => {
   const content = db.prepare('SELECT * FROM contents WHERE id = ?').get(req.params.id);
   if (!content) return res.status(404).send('Not found');
 
@@ -283,7 +312,7 @@ app.post('/contents/:id/image/delete', (req, res) => {
 });
 
 // POST /api/upload - 이미지 업로드
-app.post('/api/upload', upload.single('image'), (req, res) => {
+app.post('/api/upload', upload.single('image'), compressImages, (req, res) => {
   if (!req.file) return res.status(400).json({ error: '이미지 파일 필요' });
 
   const baseUrl = process.env.DASHBOARD_URL || 'https://dash.bestrealinfo.com';
